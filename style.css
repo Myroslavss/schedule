@@ -1,0 +1,452 @@
+/* ---------------------------------------------------------------
+   Розклад занять — 243 с.т.н.
+   Токени: холодний нейтральний фон, індиго/бірюза для типів пар,
+   гірчичний акцент лише для позначення "сьогодні".
+----------------------------------------------------------------*/
+
+:root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface-sunken: #eef0f5;
+    --ink: #14161f;
+    --ink-soft: #4a4e5c;
+    --muted: #868b99;
+    --border: #e2e4ec;
+
+    --lecture: #4338ca;
+    --lecture-bg: #edecfb;
+    --practice: #0d8f82;
+    --practice-bg: #e2f5f2;
+    --military: #64748b;
+    --military-bg: #eceef2;
+
+    --today: #c98a1a;
+    --today-bg: #fbf1de;
+
+    --radius-s: 10px;
+    --radius-m: 14px;
+    --shadow: 0 1px 2px rgba(20, 22, 31, 0.04), 0 8px 20px -12px rgba(20, 22, 31, 0.18);
+
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+/* ---------------------------- Topbar ---------------------------- */
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar__inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 22px 24px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.topbar__title h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.topbar__group {
+    margin: 4px 0 0;
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+/* Week toggle: segmented control with sliding thumb */
+
+.week-toggle {
+    position: relative;
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--surface-sunken);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 2px;
+}
+
+.week-toggle__btn {
+    position: relative;
+    z-index: 1;
+    border: none;
+    background: transparent;
+    padding: 9px 18px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    transition: color 0.2s ease;
+    white-space: nowrap;
+}
+
+.week-toggle__btn[aria-pressed="true"] {
+    color: #ffffff;
+}
+
+.week-toggle__thumb {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(50% - 4px);
+    height: calc(100% - 8px);
+    background: var(--ink);
+    border-radius: 999px;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.week-toggle[data-active="even"] .week-toggle__thumb {
+    transform: translateX(calc(100% + 2px));
+}
+
+/* Mobile day nav (hidden on desktop) */
+
+.day-nav {
+    display: none;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 16px 12px;
+    gap: 6px;
+    overflow-x: auto;
+}
+
+.day-nav__btn {
+    flex: 1 0 auto;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 9px 0;
+    border-radius: var(--radius-s);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-align: center;
+    min-width: 52px;
+}
+
+.day-nav__btn[aria-current="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+}
+
+.day-nav__btn[data-is-today="true"]:not([aria-current="true"]) {
+    color: var(--today);
+    border-color: var(--today-bg);
+    background: var(--today-bg);
+}
+
+/* ---------------------------- Content ---------------------------- */
+
+.content {
+    flex: 1;
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* ----- Desktop grid ----- */
+
+.grid-view {
+    display: grid;
+    grid-template-columns: 92px repeat(5, 1fr);
+    column-gap: 12px;
+    row-gap: 10px;
+}
+
+.grid__corner {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.grid__day-head {
+    grid-row: 1;
+    padding: 4px 4px 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-bottom: 2px solid var(--border);
+}
+
+.grid__day-head[data-is-today="true"] {
+    color: var(--today);
+    border-bottom-color: var(--today);
+}
+
+.grid__time {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 10px 10px 0 0;
+    text-align: right;
+}
+
+.grid__time-pair {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1;
+}
+
+.grid__time-range {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+.grid__cell {
+    min-height: 64px;
+    display: flex;
+}
+
+.grid__cell--today {
+    position: relative;
+}
+
+.grid__cell--today::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 -6px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--today);
+}
+
+.grid__cell--empty {
+    width: 100%;
+    border-top: 1px dashed var(--border);
+    margin-top: 8px;
+}
+
+/* ----- Lesson card ----- */
+
+.card {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+    padding: 12px 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: transparent;
+}
+
+.card__type {
+    align-self: flex-start;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+
+.card--lecture .card__type {
+    background: var(--lecture-bg);
+    color: var(--lecture);
+}
+
+.card--practice .card__type {
+    background: var(--practice-bg);
+    color: var(--practice);
+}
+
+.card--military .card__type {
+    background: var(--military-bg);
+    color: var(--military);
+}
+
+.card__subject {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+}
+
+.card__note {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.card__meta {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.card__meta span::before {
+    content: "";
+}
+
+/* ----- Mobile list ----- */
+
+.list-view {
+    display: none;
+}
+
+.list-day {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.list-day.is-active {
+    display: flex;
+}
+
+.list-slot {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.list-slot__time {
+    padding-top: 13px;
+    text-align: right;
+}
+
+.list-slot__pair {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.list-slot__range {
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.list-slot .card {
+    padding: 13px 14px;
+}
+
+.list-slot--empty .list-slot__time {
+    opacity: 0.45;
+}
+
+.empty-slot {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-s);
+    padding: 10px 12px;
+    color: var(--muted);
+    font-size: 12.5px;
+    display: flex;
+    align-items: center;
+}
+
+/* ---------------------------- Footer ---------------------------- */
+
+.page-footer {
+    text-align: center;
+    padding: 18px 24px 28px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+/* ---------------------------- Responsive ---------------------------- */
+
+@media (max-width: 860px) {
+    .grid-view {
+        display: none;
+    }
+
+    .list-view {
+        display: block;
+    }
+
+    .day-nav {
+        display: flex;
+    }
+
+    .topbar__inner {
+        padding: 18px 16px 14px;
+    }
+
+    .topbar__title h1 {
+        font-size: 23px;
+    }
+
+    .content {
+        padding: 16px;
+    }
+}
+
+@media (max-width: 420px) {
+    .week-toggle__btn {
+        padding: 9px 12px;
+        font-size: 12.5px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .week-toggle__thumb,
+    .card {
+        transition: none;
+    }
+}
+
+/* Keyboard focus visibility */
+button:focus-visible {
+    outline: 2px solid var(--lecture);
+    outline-offset: 2px;
+}

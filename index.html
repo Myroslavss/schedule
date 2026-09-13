@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Розклад занять — 243 с.т.н.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar__inner">
+      <div class="topbar__title">
+        <h1>Розклад занять</h1>
+        <p class="topbar__group" id="group-name">Група …</p>
+      </div>
+
+      <div class="week-toggle" role="group" aria-label="Тиждень">
+        <button type="button" class="week-toggle__btn" data-week="odd" aria-pressed="false">
+          Непарний тиждень
+        </button>
+        <button type="button" class="week-toggle__btn" data-week="even" aria-pressed="false">
+          Парний тиждень
+        </button>
+        <span class="week-toggle__thumb" aria-hidden="true"></span>
+      </div>
+    </div>
+
+    <nav class="day-nav" id="day-nav" aria-label="Дні тижня">
+      <button type="button" class="day-nav__btn" data-day="monday">Пн</button>
+      <button type="button" class="day-nav__btn" data-day="tuesday">Вт</button>
+      <button type="button" class="day-nav__btn" data-day="wednesday">Ср</button>
+      <button type="button" class="day-nav__btn" data-day="thursday">Чт</button>
+      <button type="button" class="day-nav__btn" data-day="friday">Пт</button>
+    </nav>
+  </header>
+
+  <main class="content">
+    <!-- Desktop / tablet: grid across the week -->
+    <section class="grid-view" id="grid-view" aria-label="Розклад на тиждень"></section>
+
+    <!-- Mobile: one day at a time -->
+    <section class="list-view" id="list-view" aria-label="Розклад на день"></section>
+  </main>
+
+  <footer class="page-footer">
+    <p>Дані розкладу можуть змінюватись — звіряйте з деканатом у разі сумнівів.</p>
+  </footer>
+
+  <script src="data/schedule.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
