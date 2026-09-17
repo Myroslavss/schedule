@@ -278,6 +278,14 @@
     subject.textContent = lesson.subject;
     card.appendChild(subject);
 
+    if (lesson.groupSplit) {
+      const group = document.createElement("span");
+      group.className =
+        "card__group-badge " + groupBadgeClass(lesson.groupSplit);
+      group.textContent = lesson.groupSplit;
+      card.appendChild(group);
+    }
+
     if (lesson.note) {
       const note = document.createElement("div");
       note.className = "card__note";
@@ -285,7 +293,14 @@
       card.appendChild(note);
     }
 
-    if (lesson.teacher || lesson.room) {
+    if (Array.isArray(lesson.streams) && lesson.streams.length) {
+      const streams = document.createElement("div");
+      streams.className = "card__streams";
+      lesson.streams.forEach((stream) => {
+        streams.appendChild(renderStream(stream));
+      });
+      card.appendChild(streams);
+    } else if (lesson.teacher || lesson.room) {
       const meta = document.createElement("div");
       meta.className = "card__meta";
       if (lesson.teacher) {
@@ -295,14 +310,52 @@
       }
       if (lesson.room) {
         const r = document.createElement("span");
-        r.textContent =
-          lesson.room === "онлайн" ? "онлайн" : "ауд. " + lesson.room;
+        r.textContent = formatRoom(lesson.room);
         meta.appendChild(r);
       }
       card.appendChild(meta);
     }
 
     return card;
+  }
+
+  function renderStream(stream) {
+    const row = document.createElement("div");
+    row.className = "stream stream--" + streamColorKey(stream.label);
+
+    const label = document.createElement("span");
+    label.className = "stream__label";
+    label.textContent = stream.label;
+    row.appendChild(label);
+
+    const meta = document.createElement("span");
+    meta.className = "stream__meta";
+    const parts = [];
+    if (stream.teacher) parts.push(stream.teacher);
+    if (stream.room) parts.push(formatRoom(stream.room));
+    meta.textContent = parts.join(" · ");
+    row.appendChild(meta);
+
+    return row;
+  }
+
+  function formatRoom(room) {
+    return room === "онлайн" ? "онлайн" : "ауд. " + room;
+  }
+
+  // Стабільний колір підгрупи за номером у назві ("Група 1" → g1, "Група 2" → g2, ін. → g3).
+  function groupBadgeClass(label) {
+    const match = String(label).match(/\d+/);
+    const n = match ? Number(match[0]) : 0;
+    return "card__group-badge--g" + (((n - 1) % 3) + 1 || 1);
+  }
+
+  // Колір потоку за ключовим словом у назві (C#, Java), інакше — нейтральний.
+  function streamColorKey(label) {
+    const l = String(label).toLowerCase();
+    if (l.includes("c#") || l.includes("c-sharp")) return "csharp";
+    if (l.includes("java")) return "java";
+    return "default";
   }
 
   // ------------------------------------------------------------------
