@@ -62,10 +62,11 @@ const schedules = {
       {
         pair: 5,
         subject: "Конструювання програмного забезпечення",
-        note: "потік C#",
-        teacher: "Бабаєв А.І.",
-        room: "8-224",
         type: "lecture",
+        streams: [
+          { label: "Потік C#", teacher: "Бабаєв А.І.", room: "8-224" },
+          { label: "Потік Java", teacher: "Дячук Р.Л.", room: "9-3" },
+        ],
       },
     ],
     tuesday: [

@@ -1,7 +1,7 @@
 // script.js
 // Рендеринг розкладу (десктоп-сітка + мобільний список по днях),
-// перемикання парний/непарний тиждень, виділення поточного дня,
-// збереження вибору тижня в localStorage.
+// перемикання парний/непарний тиждень, автовизначення поточного тижня,
+// свайпи між днями на мобільній версії, виділення поточного дня.
 
 (function () {
   "use strict";
@@ -18,10 +18,18 @@
     .map(Number)
     .sort((a, b) => a - b);
 
-  const STORAGE_KEY = "schedule:week";
+  // Понеділок будь-якого ВІДОМОГО НЕПАРНОГО тижня (формат YYYY-MM-DD).
+  // Від нього рахується парність усіх інших тижнів.
+  // ⚠️ Перевір за своїм розкладом і за потреби зміни цю дату.
+  const ODD_WEEK_ANCHOR = "2026-08-31";
+
+  const SWIPE_MIN_DISTANCE = 50; // px
+  const SWIPE_DIRECTION_RATIO = 1.5; // |dx| має бути більшим за |dy| у 1.5 раза
+
+  const CURRENT_WEEK = getCurrentWeekType();
 
   const state = {
-    week: loadWeek(),
+    week: CURRENT_WEEK,
     activeDay: todayKey() || "monday",
   };
 
@@ -29,6 +37,7 @@
   const listView = document.getElementById("list-view");
   const dayNav = document.getElementById("day-nav");
   const weekToggle = document.querySelector(".week-toggle");
+  const contentEl = document.querySelector(".content");
 
   document.getElementById("group-name").textContent = "Група " + GROUP_NAME;
 
@@ -37,9 +46,36 @@
     buildDayNav();
     buildGridSkeleton();
     buildListSkeleton();
+    initSwipe();
     render();
 
     window.addEventListener("resize", debounce(render, 150));
+  }
+
+  // ------------------------------------------------------------------
+  // Визначення парності тижня
+  // ------------------------------------------------------------------
+
+  // У сб/нд показуємо вже наступний тиждень (як і activeDay = понеділок).
+  function getCurrentWeekType(now) {
+    const d = now ? new Date(now) : new Date();
+    d.setHours(0, 0, 0, 0);
+
+    const dow = d.getDay(); // 0 = нд, 6 = сб
+    if (dow === 6) d.setDate(d.getDate() + 2);
+    else if (dow === 0) d.setDate(d.getDate() + 1);
+
+    // Понеділок цього тижня
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+
+    const parts = ODD_WEEK_ANCHOR.split("-").map(Number);
+    const anchor = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    // Math.round — щоб перехід на літній/зимовий час не ламав різницю
+    const weeks = Math.round((monday - anchor) / (7 * 24 * 60 * 60 * 1000));
+
+    return weeks % 2 === 0 ? "odd" : "even";
   }
 
   // ------------------------------------------------------------------
@@ -48,6 +84,10 @@
 
   function buildWeekToggle() {
     weekToggle.querySelectorAll(".week-toggle__btn").forEach((btn) => {
+      if (btn.dataset.week === CURRENT_WEEK) {
+        btn.dataset.isCurrent = "true";
+        btn.title = "Поточний тиждень";
+      }
       btn.addEventListener("click", () => {
         setWeek(btn.dataset.week);
       });
@@ -58,11 +98,6 @@
   function setWeek(week) {
     if (week !== "odd" && week !== "even") return;
     state.week = week;
-    try {
-      localStorage.setItem(STORAGE_KEY, week);
-    } catch (e) {
-      /* localStorage unavailable — ignore, toggle still works this session */
-    }
     updateWeekToggleUI();
     render();
   }
@@ -73,16 +108,6 @@
       const active = btn.dataset.week === state.week;
       btn.setAttribute("aria-pressed", String(active));
     });
-  }
-
-  function loadWeek() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === "odd" || saved === "even") return saved;
-    } catch (e) {
-      /* ignore */
-    }
-    return "odd";
   }
 
   // ------------------------------------------------------------------
@@ -104,11 +129,70 @@
 
   function updateDayNavUI() {
     dayNav.querySelectorAll(".day-nav__btn").forEach((btn) => {
-      btn.setAttribute(
-        "aria-current",
-        String(btn.dataset.day === state.activeDay)
-      );
+      const active = btn.dataset.day === state.activeDay;
+      btn.setAttribute("aria-current", String(active));
+      if (active) {
+        // Якщо nav прокручується — тримаємо активний день у видимій зоні
+        btn.scrollIntoView({ inline: "nearest", block: "nearest" });
+      }
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Свайпи між днями (mobile)
+  // ------------------------------------------------------------------
+
+  function initSwipe() {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    contentEl.addEventListener(
+      "touchstart",
+      (e) => {
+        // Свайпи працюють лише коли видно мобільний список
+        const listVisible = getComputedStyle(listView).display !== "none";
+        if (!listVisible || e.touches.length !== 1) {
+          tracking = false;
+          return;
+        }
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true;
+      },
+      { passive: true }
+    );
+
+    contentEl.addEventListener(
+      "touchend",
+      (e) => {
+        if (!tracking) return;
+        tracking = false;
+
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+
+        if (Math.abs(dx) < SWIPE_MIN_DISTANCE) return;
+        if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIRECTION_RATIO) return;
+
+        // Свайп вліво → наступний день, вправо → попередній
+        shiftDay(dx < 0 ? 1 : -1);
+      },
+      { passive: true }
+    );
+
+    contentEl.addEventListener("touchcancel", () => {
+      tracking = false;
+    });
+  }
+
+  function shiftDay(delta) {
+    const idx = DAYS.findIndex((d) => d.key === state.activeDay);
+    const next = idx + delta;
+    if (next < 0 || next >= DAYS.length) return; // не виходимо за Пн–Пт
+    state.activeDay = DAYS[next].key;
+    render();
   }
 
   // ------------------------------------------------------------------
