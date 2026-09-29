@@ -1,7 +1,7 @@
 // script.js
 // Рендеринг розкладу (десктоп-сітка + мобільний список по днях),
 // перемикання парний/непарний тиждень, автовизначення поточного тижня,
-// свайпи між днями на мобільній версії, виділення поточного дня.
+// плавні свайпи між днями на мобільній версії, виділення поточного дня.
 
 (function () {
   "use strict";
@@ -19,12 +19,20 @@
     .sort((a, b) => a - b);
 
   // Понеділок будь-якого ВІДОМОГО НЕПАРНОГО тижня (формат YYYY-MM-DD).
-  // Від нього рахується парність усіх інших тижнів.
   // ⚠️ Перевір за своїм розкладом і за потреби зміни цю дату.
   const ODD_WEEK_ANCHOR = "2026-08-31";
 
-  const SWIPE_MIN_DISTANCE = 50; // px
-  const SWIPE_DIRECTION_RATIO = 1.5; // |dx| має бути більшим за |dy| у 1.5 раза
+  // Параметри свайпу
+  const SWIPE_LOCK_DISTANCE = 8; // px руху, після яких визначаємо напрям жесту
+  const SWIPE_COMMIT_MIN = 50; // мінімальна відстань для перемикання, px
+  const SWIPE_COMMIT_RATIO = 0.25; // або частка ширини екрана
+  const SWIPE_VELOCITY = 0.4; // px/ms — швидкий "фліком" теж перемикає
+  const EDGE_RESISTANCE = 0.25; // "гумка" на краях (Пн вправо / Пт вліво)
+  const OUT_DURATION = 150; // ms, виїзд поточного дня
+  const IN_DURATION = 220; // ms, заїзд нового дня
+  const SNAP_DURATION = 200; // ms, повернення на місце
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const CURRENT_WEEK = getCurrentWeekType();
 
@@ -32,6 +40,8 @@
     week: CURRENT_WEEK,
     activeDay: todayKey() || "monday",
   };
+
+  let animating = false;
 
   const gridView = document.getElementById("grid-view");
   const listView = document.getElementById("list-view");
@@ -121,8 +131,11 @@
         btn.dataset.isToday = "true";
       }
       btn.addEventListener("click", () => {
-        state.activeDay = btn.dataset.day;
-        render();
+        if (animating) return;
+        const from = dayIndex(state.activeDay);
+        const to = dayIndex(btn.dataset.day);
+        if (to === from) return;
+        setDay(btn.dataset.day, to > from ? 1 : -1);
       });
     });
   }
@@ -139,26 +152,110 @@
   }
 
   // ------------------------------------------------------------------
-  // Свайпи між днями (mobile)
+  // Перемикання дня + анімації (mobile)
+  // ------------------------------------------------------------------
+
+  function dayIndex(key) {
+    return DAYS.findIndex((d) => d.key === key);
+  }
+
+  function isListVisible() {
+    return getComputedStyle(listView).display !== "none";
+  }
+
+  function activePanel() {
+    return listView.querySelector(".list-day.is-active");
+  }
+
+  // dir: 1 — наступний день (новий заїжджає справа), -1 — попередній (зліва)
+  function canShift(dir) {
+    const next = dayIndex(state.activeDay) + dir;
+    return next >= 0 && next < DAYS.length;
+  }
+
+  function setDay(key, dir) {
+    state.activeDay = key;
+    render();
+    if (dir && isListVisible() && !reducedMotion.matches) {
+      enterAnimation(dir);
+    }
+  }
+
+  function enterAnimation(dir) {
+    const panel = activePanel();
+    if (!panel) return;
+    const distance = Math.min(panel.offsetWidth * 0.3, 120) * dir;
+    animating = true;
+    const anim = panel.animate(
+      [
+        { transform: "translateX(" + distance + "px)", opacity: 0 },
+        { transform: "translateX(0)", opacity: 1 },
+      ],
+      { duration: IN_DURATION, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+    );
+    anim.onfinish = anim.oncancel = () => {
+      animating = false;
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Свайпи між днями (mobile): картка йде за пальцем
   // ------------------------------------------------------------------
 
   function initSwipe() {
     let startX = 0;
     let startY = 0;
-    let tracking = false;
+    let startTime = 0;
+    let mode = "idle"; // idle | pending | drag | ignore
+    let panel = null;
+    let width = 1;
+
+    function currentOffset(dx) {
+      const dir = dx < 0 ? 1 : -1;
+      return canShift(dir) ? dx : dx * EDGE_RESISTANCE;
+    }
 
     contentEl.addEventListener(
       "touchstart",
       (e) => {
-        // Свайпи працюють лише коли видно мобільний список
-        const listVisible = getComputedStyle(listView).display !== "none";
-        if (!listVisible || e.touches.length !== 1) {
-          tracking = false;
+        if (animating || e.touches.length !== 1 || !isListVisible()) {
+          mode = "ignore";
           return;
         }
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        tracking = true;
+        startTime = performance.now();
+        mode = "pending";
+      },
+      { passive: true }
+    );
+
+    contentEl.addEventListener(
+      "touchmove",
+      (e) => {
+        if (mode === "idle" || mode === "ignore") return;
+
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+
+        if (mode === "pending") {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_LOCK_DISTANCE) return;
+          if (Math.abs(dx) <= Math.abs(dy)) {
+            mode = "ignore"; // це вертикальний скрол
+            return;
+          }
+          panel = activePanel();
+          if (!panel) {
+            mode = "ignore";
+            return;
+          }
+          width = panel.offsetWidth || 1;
+          mode = "drag";
+        }
+
+        const offset = currentOffset(dx);
+        panel.style.transform = "translateX(" + offset + "px)";
+        panel.style.opacity = String(1 - Math.min(Math.abs(offset) / width, 1) * 0.5);
       },
       { passive: true }
     );
@@ -166,33 +263,79 @@
     contentEl.addEventListener(
       "touchend",
       (e) => {
-        if (!tracking) return;
-        tracking = false;
+        const wasDrag = mode === "drag";
+        mode = "idle";
+        if (!wasDrag || !panel) return;
 
-        const touch = e.changedTouches[0];
-        const dx = touch.clientX - startX;
-        const dy = touch.clientY - startY;
+        const dx = e.changedTouches[0].clientX - startX;
+        const dt = Math.max(performance.now() - startTime, 1);
+        const dir = dx < 0 ? 1 : -1;
+        const distance = Math.abs(dx);
+        const fast = distance > 20 && distance / dt > SWIPE_VELOCITY;
+        const far = distance > Math.max(SWIPE_COMMIT_MIN, width * SWIPE_COMMIT_RATIO);
+        const commit = canShift(dir) && (far || fast);
 
-        if (Math.abs(dx) < SWIPE_MIN_DISTANCE) return;
-        if (Math.abs(dx) < Math.abs(dy) * SWIPE_DIRECTION_RATIO) return;
+        const el = panel;
+        panel = null;
+        const offset = currentOffset(dx);
+        const opacity = 1 - Math.min(Math.abs(offset) / width, 1) * 0.5;
 
-        // Свайп вліво → наступний день, вправо → попередній
-        shiftDay(dx < 0 ? 1 : -1);
+        if (reducedMotion.matches) {
+          el.style.transform = "";
+          el.style.opacity = "";
+          if (commit) setDay(DAYS[dayIndex(state.activeDay) + dir].key, 0);
+          return;
+        }
+
+        if (commit) {
+          animating = true;
+          const target = dir === 1 ? -width : width;
+          const out = el.animate(
+            [
+              { transform: "translateX(" + offset + "px)", opacity: opacity },
+              { transform: "translateX(" + target + "px)", opacity: 0 },
+            ],
+            { duration: OUT_DURATION, easing: "ease-in", fill: "forwards" }
+          );
+          out.onfinish = () => {
+            out.cancel();
+            el.style.transform = "";
+            el.style.opacity = "";
+            animating = false;
+            setDay(DAYS[dayIndex(state.activeDay) + dir].key, dir);
+          };
+        } else {
+          // Повертаємо на місце
+          el.style.transform = "";
+          el.style.opacity = "";
+          animating = true;
+          const back = el.animate(
+            [
+              { transform: "translateX(" + offset + "px)", opacity: opacity },
+              { transform: "translateX(0)", opacity: 1 },
+            ],
+            { duration: SNAP_DURATION, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+          );
+          back.onfinish = back.oncancel = () => {
+            animating = false;
+          };
+        }
       },
       { passive: true }
     );
 
-    contentEl.addEventListener("touchcancel", () => {
-      tracking = false;
-    });
-  }
-
-  function shiftDay(delta) {
-    const idx = DAYS.findIndex((d) => d.key === state.activeDay);
-    const next = idx + delta;
-    if (next < 0 || next >= DAYS.length) return; // не виходимо за Пн–Пт
-    state.activeDay = DAYS[next].key;
-    render();
+    contentEl.addEventListener(
+      "touchcancel",
+      () => {
+        if (mode === "drag" && panel) {
+          panel.style.transform = "";
+          panel.style.opacity = "";
+        }
+        mode = "idle";
+        panel = null;
+      },
+      { passive: true }
+    );
   }
 
   // ------------------------------------------------------------------
