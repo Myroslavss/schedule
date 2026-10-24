@@ -17,8 +17,7 @@
     --lecture-bg: #edecfb;
     --practice: #0d8f82;
     --practice-bg: #e2f5f2;
-    --military: #64748b;
-    --military-bg: #eceef2;
+
 
     --today: #c98a1a;
     --today-bg: #fbf1de;
@@ -315,11 +314,6 @@ button {
 .card--practice .card__type {
     background: var(--practice-bg);
     color: var(--practice);
-}
-
-.card--military .card__type {
-    background: var(--military-bg);
-    color: var(--military);
 }
 
 .card__subject {
